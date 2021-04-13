@@ -65,7 +65,6 @@ def Recon(filename, output, mode, offset, types, initial, MC, method, verbose):
             recondata['z_truth'] = zt
             recondata['E_truth'] = Et
             recondata['EventID'] = sid
-            
             fired_PMT = ak.to_numpy(pmt)
             time_array = ak.to_numpy(time_array)
      
@@ -87,12 +86,11 @@ def Recon(filename, output, mode, offset, types, initial, MC, method, verbose):
                 x0_in = pub.Initial.FitGrid(pe_array, mesh, tpl, time_array)
             elif args.initial == 'MC':
                 x0_in = pub.Initial.MCGrid(pe_array, mesh, tpl, time_array)
-            
-            if(method=='1'):
-                x0_in = x0_in[1:]
-                result_in = minimize(pub.Likelihood_Truth.Likelihood, x0_in, method='SLSQP', bounds=((0, 1), (None, None), (None, None), (None, None)), args = (coeff_time, coeff_pe, PMT_pos, fired_PMT, time_array, pe_array, cut_time, cut_pe))
-                z, x = pub.Likelihood_Truth.Calc_basis(result_in.x, PMT_pos, cut_pe)
-                L, E_in = pub.Likelihood_Truth.Likelihood_PE(coeff_pe, z, x, pe_array, cut_pe)
+
+            x0_in = x0_in[1:]
+            result_in = minimize(pub.Likelihood_Truth.Likelihood, x0_in, method='SLSQP', bounds=((0, 1), (None, None), (None, None), (None, None)), args = (coeff_time, coeff_pe, PMT_pos, fired_PMT, time_array, pe_array, cut_time, cut_pe))
+            z, x = pub.Likelihood_Truth.Calc_basis(result_in.x, PMT_pos, cut_pe)
+            L, E_in = pub.Likelihood_Truth.Likelihood_PE(coeff_pe, z, x, pe_array, cut_pe)
 
             # xyz coordinate
             in2 = pub.r2c(result_in.x[:3])*shell
@@ -101,10 +99,9 @@ def Recon(filename, output, mode, offset, types, initial, MC, method, verbose):
             recondata['z_sph_in'] = in2[2]
             recondata['success_in'] = result_in.success
             recondata['Likelihood_in'] = result_in.fun
-            
             # outer recon
             if args.initial == 'WA':
-                x0_out = x0_in.copy()
+                x0_out = result_in.copy()
                 x0_out[0] = 0.92
             else:
                 x0_out = pub.Initial.FitGrid(pe_array, mesh_out, tpl_out, time_array)
@@ -197,7 +194,7 @@ parser.add_argument('--offset', dest='offset', metavar='offset[*.h5]', type=str,
 parser.add_argument('--type', dest='type', choices=['h5', 'Sim_root', 'wave'], default='Sim_root',
                     help = 'Load file type')
 
-parser.add_argument('--initial', dest='initial', choices=['WA','MC','fit'], default='MC',
+parser.add_argument('--initial', dest='initial', choices=['WA','MC','fit'], default='fit',
                     help = 'initial point method')
 
 parser.add_argument('--MC', dest='MC', metavar='MCGrid[*.h5]', type=str, default=False,
