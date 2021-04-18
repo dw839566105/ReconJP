@@ -134,24 +134,7 @@ def Recon(filename, output, mode, offset, types, initial, MC, method, verbose):
                 print('%d vertex: [%+.2f, %+.2f, %+.2f] radius: %+.2f, Likelihood: %+.6f' % (sid, in2[0], in2[1], in2[2], norm(in2), result_in.fun))
                 print('outer')
                 print('%d vertex: [%+.2f, %+.2f, %+.2f] radius: %+.2f, Likelihood: %+.6f' % (sid, out2[0], out2[1], out2[2], norm(out2), result_out.fun))
-            
-        else:
-            recondata['x_sph_in'] = 0
-            recondata['y_sph_in'] = 0
-            recondata['z_sph_in'] = 0
-            recondata['E_sph_in'] = 0
-            recondata['success_in'] = 0
-            recondata['Likelihood_in'] = 0
-            
-            recondata['x_sph_out'] = 0
-            recondata['y_sph_out'] = 0
-            recondata['z_sph_out'] = 0
-            recondata['E_sph_out'] = 0
-            recondata['success_out'] = 0
-            recondata['Likelihood_out'] = 0
-            print('empty event!')
-            print('-'*60)
-        recondata.append()
+            recondata.append()
     elif types == 'h5':
         pass
     
