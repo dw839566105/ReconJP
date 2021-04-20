@@ -117,7 +117,7 @@ class Likelihood_Truth:
     def Calc_basis(vertex, PMT_pos, cut): 
         # boundary
         v = r2c(vertex[:3])
-        z = v[0]
+        z = vertex[0]
         if z > 1-1e-3:
             z = 1-1e-3
         # calculate cos theta
@@ -329,7 +329,7 @@ class Initial:
         E_ini = np.sum(pe_array)/60
         t_ini = np.quantile(time_array, 0.1)
         vertex[0] = E_ini
-        vertex[1:4] = c2r(x_ini)/1000
+        vertex[1:4] = c2r(x_ini/1000)
         vertex[1] /= 0.65
         vertex[-1] = t_ini
         return vertex
