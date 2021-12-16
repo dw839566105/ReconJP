@@ -2,7 +2,6 @@ import pub
 import numpy as np
 
 import h5py
-import argparse
 from argparse import RawTextHelpFormatter
 import argparse, textwrap
 import time
@@ -11,29 +10,24 @@ import statsmodels.api as sm
 from zernike import RZern
 import pandas as pd
 
+np.set_printoptions(formatter={'float': '{: 0.3f}'.format})
+# global:
+PMTPos = pub.ReadJPPMT()
 
 def main_Calib(filename, output, mode, order, offset, qt):
-
     print('begin reading file', flush=True)
     if(offset):
-        off = pub.LoadBase(offset)
+        off = pub.LoadBase(offset)  
     else:
         off = np.zeros_like(PMTPos[:,0])
 
     tmp = time.time()
 
     ## sphere
-    for i in np.arange(1,11):
-        if i == 1:
-            with h5py.File(filename + '%02d.h5' % i, "r") as ipt:
-                h_hit = ipt['Concat'][()]
-                h_nonhit = ipt['Vertices'][()]
-        else:
-            with h5py.File(filename + '%02d.h5' % i, "r") as ipt:
-                data = ipt['Concat'][()]
-                data['EId'] += np.max(h_hit['EId'])
-                h_hit = np.hstack((h_hit, data))
-                h_nonhit = np.hstack((h_nonhit, ipt['Vertices'][()]))
+ 
+    with h5py.File(filename, "r") as ipt:
+        h_hit = ipt['Concat'][()]
+        h_nonhit = ipt['Vertices'][()]
 
     EventId = h_hit['EId']
     ChannelId = h_hit['CId']
@@ -42,24 +36,14 @@ def main_Calib(filename, output, mode, order, offset, qt):
         y, _, _ = np.histogram2d(EventId, ChannelId,
             bins = (np.arange(np.min(EventId), np.max(EventId)+2)-0.5, np.arange(len(PMTPos)+1) - 0.5))
         y = y.flatten()
-        rho = h_nonhit['r']/1000/args.r_max
-        theta = h_nonhit['theta']
+        cth = np.cos(h_nonhit['theta'])
     elif mode == 'time':
         y = h_hit['t']
-        rho = h_hit['r']/1000/args.r_max
-        theta = h_hit['theta']
+        cth = np.cos(h_hit['theta'])
 
-    cart = RZern(order)
-    nk = cart.nk
-    m = cart.mtab
-    n = cart.ntab
-    X = np.zeros((rho.shape[0], nk))
-    for i in np.arange(nk):
-        if not i % 5:
-            print(f'process {i}-th event')
-        X[:,i] = cart.Zk(i, rho, theta)
-    X = X[:,m>=0]
+    X = pub.legval(cth, np.eye(order).reshape((order, order, 1))).T
 
+        
     print(f'use {time.time() - tmp} s')
     print(f'the basis shape is {X.shape}, and the dependent variable shape is {y.shape}')
 
@@ -103,7 +87,7 @@ def main_Calib(filename, output, mode, order, offset, qt):
         table = opt.create_dataset(f"coeff", data=coef_)
         table.attrs["t_min"] = -20
         table.attrs["t_max"] = 500
-        table.attrs["type"] = "Zernike"
+        table.attrs["type"] = "Legendre"
         table.attrs["order"] = order
         table.attrs["std"] = std
         table.attrs["AIC"] = AIC
@@ -116,9 +100,6 @@ parser.add_argument('-o', '--output', dest='output', metavar='output[*.h5]', typ
                     help='The output filename [*.h5] to save')
 
 parser.add_argument('--mode', dest='mode', type=str, choices=['PE', 'time'], default='PE',
-                    help='Which info should be used')
-
-parser.add_argument('--pmt', dest='pmt', type=str, default='./PMT.txt',
                     help='Which info should be used')
 
 parser.add_argument('--order', dest='order', metavar='N', type=int, default=10,
@@ -136,8 +117,5 @@ parser.add_argument('--qt', type=float, default=0.1,
 args = parser.parse_args()
 print(args.filename)
 
-np.set_printoptions(formatter={'float': '{: 0.3f}'.format})
-# global:
-PMTPos = pub.ReadJPPMT(args.pmt)
 main_Calib(args.filename, args.output, args.mode, args.order, args.offset, args.qt)
     

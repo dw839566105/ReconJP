@@ -11,6 +11,9 @@ import statsmodels.api as sm
 from zernike import RZern
 import pandas as pd
 
+np.set_printoptions(formatter={'float': '{: 0.3f}'.format})
+# global:
+PMTPos = pub.ReadJPPMT()
 
 def main_Calib(filename, output, mode, order, offset, qt):
 
@@ -49,16 +52,15 @@ def main_Calib(filename, output, mode, order, offset, qt):
         rho = h_hit['r']/1000/args.r_max
         theta = h_hit['theta']
 
-    cart = RZern(order)
-    nk = cart.nk
-    m = cart.mtab
-    n = cart.ntab
-    X = np.zeros((rho.shape[0], nk))
-    for i in np.arange(nk):
-        if not i % 5:
-            print(f'process {i}-th event')
-        X[:,i] = cart.Zk(i, rho, theta)
-    X = X[:,m>=0]
+    o1, o2 = order
+    X1 = pub.legval(rho, np.eye(2*o1).reshape((2*o1, 2*o1, 1))).T
+    X1 = X1[:,::2]
+    X2 = pub.legval(np.cos(theta), np.eye(o2).reshape((o2, o2, 1))).T
+
+    X = np.empty((len(X1), o1*o2))
+    for i in range(o1):
+        for j in range(o2):
+            X[:,i*o2 + j] = X1[:,i] * X2[:,j]
 
     print(f'use {time.time() - tmp} s')
     print(f'the basis shape is {X.shape}, and the dependent variable shape is {y.shape}')
@@ -97,14 +99,15 @@ def main_Calib(filename, output, mode, order, offset, qt):
         AIC = np.zeros_like(coef_)
         std = np.zeros_like(coef_)           
         print('Waring! No AIC and std value')
+
+    coef_ = coef_.reshape(o1, o2)
     print(result.summary())
 
     with h5py.File(output, 'w') as opt:
         table = opt.create_dataset(f"coeff", data=coef_)
         table.attrs["t_min"] = -20
         table.attrs["t_max"] = 500
-        table.attrs["type"] = "Zernike"
-        table.attrs["order"] = order
+        table.attrs["type"] = "db_Legendre"
         table.attrs["std"] = std
         table.attrs["AIC"] = AIC
 
@@ -118,16 +121,16 @@ parser.add_argument('-o', '--output', dest='output', metavar='output[*.h5]', typ
 parser.add_argument('--mode', dest='mode', type=str, choices=['PE', 'time'], default='PE',
                     help='Which info should be used')
 
-parser.add_argument('--pmt', dest='pmt', type=str, default='./PMT.txt',
-                    help='Which info should be used')
+parser.add_argument('--order', dest='order', type=int, nargs='+',
+                    )
 
-parser.add_argument('--order', dest='order', metavar='N', type=int, default=10,
+parser.add_argument('--order2', dest='o2', metavar='N', type=int, default=10,
                     help=textwrap.dedent('''The max cutoff order. 
                     For Zernike is (N+1)*(N+2)/2'''))
 
 parser.add_argument('--offset', dest='offset', metavar='filename[*.h5]', type=str, default=False)
 
-parser.add_argument('--r_max', type=float, default=1.3,
+parser.add_argument('--r_max', type=float, default=0.65,
                     help='maximum LS radius')
 
 parser.add_argument('--qt', type=float, default=0.1, 
@@ -136,8 +139,5 @@ parser.add_argument('--qt', type=float, default=0.1,
 args = parser.parse_args()
 print(args.filename)
 
-np.set_printoptions(formatter={'float': '{: 0.3f}'.format})
-# global:
-PMTPos = pub.ReadJPPMT(args.pmt)
 main_Calib(args.filename, args.output, args.mode, args.order, args.offset, args.qt)
     

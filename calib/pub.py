@@ -13,7 +13,7 @@ def LoadBase(file=r'./base.h5'):
     h1.close()
     return base
 
-def ReadJPPMT(file=r"./PMT_1t.txt"):
+def ReadJPPMT(file=r"./PMT.txt"):
     '''
     # Read PMT position
     # output: 2d PMT position 30*3 (x, y, z)
@@ -73,7 +73,7 @@ def LegendreCoeff(PMT_pos, vertex, cut, Legendre=True):
     
     if(np.sum(np.isnan(cos_theta))):
         print('NaN value in cos theta!')
-        
+    cos_theta = np.nan_to_num(cos_theta)
     if(Legendre):
         x = legval(cos_theta, np.eye(cut).reshape((cut,cut,1))).T
         print(PMT_pos.shape, x.shape, cos_theta.shape)
@@ -81,7 +81,18 @@ def LegendreCoeff(PMT_pos, vertex, cut, Legendre=True):
     else:
         return cos_theta
 
-def ReadFile(filename):
+def repeat(a0):
+    # not suit for end with 1
+    end = a0[np.roll(a0==1,-1)*(a0!=1)]
+    end0 = a0.copy()
+    end_index = np.where(np.roll(a0==1,-1)*(a0!=1))
+    a = a0.copy()
+    for i in np.arange(len(end_index[0])-1):
+        a[end_index[0][i]+1:end_index[0][i+1]+1] += end[i]
+        end[i+1:] += a0[end_index[0][i]]
+    return a
+
+def ReadFile(filename, cut):
     '''
     # Read single file
     # input: filename [.h5]
@@ -90,20 +101,25 @@ def ReadFile(filename):
     h1 = tables.open_file(filename,'r')
     print(filename, flush=True)
     truthtable = h1.root.GroundTruth
-    EventID = truthtable[:]['EventID']
-    ChannelID = truthtable[:]['ChannelID']
+    EventID0 = truthtable[:]['EventID']
+    index1 = EventID0 < cut
+    EventID = repeat(EventID0[index1])
+    ChannelID = truthtable[:]['ChannelID'][index1]
+    PETime = truthtable[:]['PETime'][index1]
+    photonTime = truthtable[:]['photonTime'][index1]
+    PulseTime = truthtable[:]['PulseTime'][index1]
+    dETime = truthtable[:]['dETime'][index1]
     
-    PETime = truthtable[:]['PETime']
-    photonTime = truthtable[:]['photonTime']
-    PulseTime = truthtable[:]['PulseTime']
-    dETime = truthtable[:]['dETime']
-    
+    ID = h1.root.TruthData[:]['ID']
+    index2 = ID < cut
     Q = h1.root.PETruthData[:]['Q']
-
-    x = h1.root.TruthData[:]['x']
-    y = h1.root.TruthData[:]['y']
-    z = h1.root.TruthData[:]['z']
+    Q = Q.reshape(-1,30)[index2].flatten()
+    x = h1.root.TruthData[:]['x'][index2]
+    y = h1.root.TruthData[:]['y'][index2]
+    z = h1.root.TruthData[:]['z'][index2]
     h1.close()
+    print('read complete!')
+    breakpoint()
     if(np.float(np.size(np.unique(EventID)))!= Q.shape[0]/30):
         print('Event do not match!')
         exit()

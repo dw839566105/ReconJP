@@ -11,6 +11,9 @@ import statsmodels.api as sm
 from zernike import RZern
 import pandas as pd
 
+np.set_printoptions(formatter={'float': '{: 0.3f}'.format})
+# global:
+PMTPos = pub.ReadJPPMT()
 
 def main_Calib(filename, output, mode, order, offset, qt):
 
@@ -22,19 +25,28 @@ def main_Calib(filename, output, mode, order, offset, qt):
 
     tmp = time.time()
 
-    ## sphere
-    for i in np.arange(1,11):
-        if i == 1:
-            with h5py.File(filename + '%02d.h5' % i, "r") as ipt:
+    ## shell
+    for idx, i in enumerate(np.arange(0.01, 0.55, 0.01)):
+        print(i)
+        if idx == 0:
+            with h5py.File(filename + '/%.2f.h5' % i, "r") as ipt:
                 h_hit = ipt['Concat'][()]
                 h_nonhit = ipt['Vertices'][()]
         else:
-            with h5py.File(filename + '%02d.h5' % i, "r") as ipt:
+            with h5py.File(filename + '/%.2f.h5' % i, "r") as ipt:
                 data = ipt['Concat'][()]
                 data['EId'] += np.max(h_hit['EId'])
                 h_hit = np.hstack((h_hit, data))
                 h_nonhit = np.hstack((h_nonhit, ipt['Vertices'][()]))
 
+    for i in np.arange(0.55, 0.64, 0.002):
+        with h5py.File(filename + '/%.3f.h5' % i, "r") as ipt:
+            print(i)
+            data = ipt['Concat'][()]
+            data['EId'] += np.max(h_hit['EId'])
+            h_hit = np.hstack((h_hit, data))
+            h_nonhit = np.hstack((h_nonhit, ipt['Vertices'][()]))
+            
     EventId = h_hit['EId']
     ChannelId = h_hit['CId']
 
@@ -118,9 +130,6 @@ parser.add_argument('-o', '--output', dest='output', metavar='output[*.h5]', typ
 parser.add_argument('--mode', dest='mode', type=str, choices=['PE', 'time'], default='PE',
                     help='Which info should be used')
 
-parser.add_argument('--pmt', dest='pmt', type=str, default='./PMT.txt',
-                    help='Which info should be used')
-
 parser.add_argument('--order', dest='order', metavar='N', type=int, default=10,
                     help=textwrap.dedent('''The max cutoff order. 
                     For Zernike is (N+1)*(N+2)/2'''))
@@ -136,8 +145,5 @@ parser.add_argument('--qt', type=float, default=0.1,
 args = parser.parse_args()
 print(args.filename)
 
-np.set_printoptions(formatter={'float': '{: 0.3f}'.format})
-# global:
-PMTPos = pub.ReadJPPMT(args.pmt)
 main_Calib(args.filename, args.output, args.mode, args.order, args.offset, args.qt)
     
